@@ -1,0 +1,10 @@
+# macOS / editor cruft
+.DS_Store
+._*
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Temp install artifacts
+.claude/rasa.lock.json

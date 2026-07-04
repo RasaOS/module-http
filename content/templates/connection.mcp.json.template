@@ -1,0 +1,38 @@
+{
+  "_template": "connection.mcp.json.template — a worked mcp-type connection spec (a third-party MCP server wrapped as a connection). Copy to .claude/connections/<name>/connection.json, replace the example specifics, delete every field starting with '_' (guidance, stripped on use). Field names are LOCKED to the unified connection spec — do not rename or invent alternates. name matches ^[a-z0-9-]+$.",
+
+  "name": "example-notes",
+  "type": "mcp",
+  "display": {
+    "display_name": "Example Notes",
+    "description": "Notes service via its vendor MCP server (stdio, run with npx).",
+    "icon": "note",
+    "category": "productivity",
+    "setup_help": "Create an API token in the Example Notes account settings (Settings → API → New token; `read` + `write` scopes). Store it under the secret name `example-token` — as an env var for local use, in the kernel vault for kernel turns. The token value NEVER goes in this file or in chat."
+  },
+  "env": "personal",
+  "account_label": "chazzcoin personal",
+  "data_categories": ["none"],
+
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@example/mcp-server"],
+  "env_bindings": {
+    "EXAMPLE_TOKEN": "{{secret:example-token}}",
+    "EXAMPLE_WORKSPACE": "main"
+  },
+  "_note_env_bindings": "Values are {{secret:NAME}} references (resolved at spawn time from env / the kernel vault) or plain non-secret strings. A literal token here is a spec violation.",
+
+  "tools": ["search_notes", "get_note", "create_note"],
+  "_note_tools": "Declare every tool you intend to use. In kernel turns this list is enforced: undeclared tools are silently auto-denied. Locally it is documentation + the review surface for what this server may do.",
+
+  "lifecycle": "turn",
+  "_note_lifecycle": "turn = spawned for the turn, torn down after. managed is reserved for the kernel's long-lived server pool (Connections rung 3) — do not use it yet.",
+
+  "_alt_http_transport": {
+    "_note": "The remote variant — replace transport/command/args/env_bindings above with these fields for an MCP server reached over HTTP. headers values follow the same {{secret:NAME}} rule.",
+    "transport": "http",
+    "url": "https://mcp.example.com/mcp",
+    "headers": { "Authorization": "{{secret:example-token}}" }
+  }
+}

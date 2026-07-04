@@ -1,0 +1,13 @@
+{
+  "_note": "Merge the mcpServers entry below into your project's .mcp.json (create the file if absent), then restart Claude Code. The ${GITHUB_TOKEN} reference is expanded by Claude Code at server launch, from the environment Claude Code itself was started in — NOT by this module. So: export GITHUB_TOKEN in your shell before launching Claude Code; if it's unset the expansion fails and the server won't start with a usable auth header. The token value lives only in your shell env — never in this file, never committed, never pasted into chat. HTTP_AUTH_<SANITIZED_HOST> holds the FULL header line for that host (dots→underscores, uppercase: api.github.com → HTTP_AUTH_API_GITHUB_COM). HTTP_ALLOWED_HOSTS is deny-by-default: unset or empty means ALL egress is denied. Delete this _note after merging.",
+  "mcpServers": {
+    "http": {
+      "command": "node",
+      "args": [".claude/http/mcp-http-server.mjs"],
+      "env": {
+        "HTTP_ALLOWED_HOSTS": "api.github.com",
+        "HTTP_AUTH_API_GITHUB_COM": "Authorization: Bearer ${GITHUB_TOKEN}"
+      }
+    }
+  }
+}

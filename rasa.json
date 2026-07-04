@@ -1,0 +1,92 @@
+{
+  "$schema": "https://rasa-os.github.io/schema/rasa.schema.v1.json",
+  "contract_version": "1.3.0",
+  "name": "rasa.module.http",
+  "version": "0.1.0",
+  "kind": "module",
+  "aliases": [
+    "module-http"
+  ],
+  "description": "Generic HTTP/REST access for agents — a portable zero-dependency MCP server (http_request, http_get_json, http_paginate, http_capabilities) with deny-by-default host allowlisting, env-injected auth, truncation-honest envelopes and per-call audit lines, plus the unified connection.json spec templates and the /http and /api-onboard skills. The rung-1 opener of the Connections track (canon SA-020/SA-031): works today in any consumer project via .mcp.json, and in kernel turns via TASK-171. Typed connector Elements through the SA-031 kernel choke point are the durable path — this module carries a written sunset to dev-utility once SA-031 lands.",
+  "source": {
+    "repo": "https://github.com/RasaOS/module-http",
+    "branch": "main"
+  },
+  "tier": "Pro",
+  "capabilities": [
+    "http.request-tools",
+    "http.api-onboarding",
+    "connections.spec-templates"
+  ],
+  "permissions": [
+    "network:fetch",
+    "fs:write"
+  ],
+  "requires": {
+    "parent_kind": [
+      "domain",
+      "orchestrator"
+    ]
+  },
+  "rasa": {
+    "role": "L1-mountable-capability",
+    "shape_pattern": "toolkit",
+    "note": "The Connections-track rung-1 module. Honesty tier stated plainly: allowlist + redaction enforcement live INSIDE the shipped tool process (self-policing) — the enforced tier is SA-031's kernel-side HttpExecutor (call-time vault resolution, kernel-enforced allowlist, per-call audit events), at which point this module sunsets to dev-utility. Secrets discipline: names in specs, values ONLY in env / the kernel vault; the /api-onboard wizard is SCAFFOLD-ONLY and never accepts credential values in chat. The connection.json templates are a strict subset of the SA-031 schema (field names LOCKED there; divergence is drift and SA-031 wins). Cross-refs to canon tasks SA-020/SA-031 and kernel TASK-171 are SOFT — the module functions standalone in any Claude Code project."
+  },
+  "element": {
+    "description": "Element-owned files mirrored into the install target's .claude/ per canon ELEMENT_CONTRACT.md §7. Refreshed on Element upgrade. The consumer's live connection specs are NOT here — they are project-owned under .claude/connections/ (see seed.files).",
+    "files": [
+      {
+        "from": "content/http-rules.md",
+        "to": ".claude/http-rules.md",
+        "policy": "file-replace",
+        "note": "The portable HTTP spine: honesty tier + sunset, secrets rules (vault/env only, never chat/committed/logged), deny-by-default allowlist, write-op discipline, the locked unified connection-spec shape, truncation awareness, the error-code table, audit lines. Element-owned; refreshed on upgrade."
+      },
+      {
+        "from": "content/skills/",
+        "to": ".claude/skills/",
+        "policy": "directory-mirror",
+        "note": "HTTP skills: /http (call external APIs properly — capabilities-first, envelope handling, missing_auth stop rule, write-op confirmation) and /api-onboard (scaffold a connection spec + per-API SKILL.md; SCAFFOLD-ONLY, never accepts tokens in chat). Element-owned; refreshed on upgrade."
+      },
+      {
+        "from": "content/scripts/",
+        "to": ".claude/http/",
+        "policy": "directory-mirror",
+        "note": "The zero-dependency stdio MCP server (mcp-http-server.mjs, Node >= 18) + its reference README. Wire into the project via the mcp-config snippet in templates/ — the server runs from .claude/http/mcp-http-server.mjs. Element-owned; refreshed on upgrade."
+      },
+      {
+        "from": "content/templates/",
+        "to": ".claude/http/templates/",
+        "policy": "directory-mirror",
+        "note": "The unified connection-spec templates (connection.rest.json.template, connection.mcp.json.template — strict subset of the SA-031 schema), the per-API SKILL.md 9-section template (api-skill.md.template), and the .mcp.json wiring snippet (mcp-config.snippet.json). Element-owned; refreshed on upgrade."
+      },
+      {
+        "from": "content/README.md",
+        "to": "content/README.md",
+        "policy": "opt-in",
+        "note": "Describes what this module ships and how it installs. Fork/author-time doc; not installed into consumer projects."
+      }
+    ]
+  },
+  "seed": {
+    "description": "One-time, project-owned files copied at install only (skip-if-exists), per canon ELEMENT_CONTRACT.md §7. The consumer's connection specs live under .claude/connections/ and belong to the project — never overwritten on Element upgrade.",
+    "files": [
+      {
+        "from": "seed/connections/README.md",
+        "to": ".claude/connections/README.md",
+        "policy": "skip-if-exists",
+        "note": "Seeds the project-owned connections folder: one folder per connection (connection.json + SKILL.md), the secrets rule, the /api-onboard pointer, and the promotion path to SA-031 connector Elements."
+      },
+      {
+        "from": "seed/rasa.lock.json.template",
+        "to": ".claude/rasa.lock.json",
+        "policy": "init-only-with-sha",
+        "note": "Stamped with the Element HEAD commit SHA at init time. Lockfile shape per canon Spec §6 (Connection Contract). When co-installed under a parent that also stamps a lockfile, the parent's is authoritative (single-writer-per-path, Lock L-004). Substitutes the standard {{ELEMENT_*}} / {{TODAY}} placeholders via bin/init."
+      }
+    ]
+  },
+  "scaffold": {
+    "description": "Empty directories created at init by the declarative installer. The connections/ folder ships as a seeded README instead (bin/init does not implement scaffold.directories), so this stays empty.",
+    "directories": []
+  }
+}

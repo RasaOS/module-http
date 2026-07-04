@@ -1,0 +1,88 @@
+{
+  "_template": "connection.rest.json.template — a COMPLETE worked rest-type connection spec (GitHub). Copy to .claude/connections/<name>/connection.json, replace the GitHub specifics, delete every field starting with '_' (they are guidance, stripped on use). Field names are LOCKED to the unified connection spec (strict subset of the upcoming SA-031 schema) — do not rename or invent alternates. Names and operation ids match ^[a-z0-9-]+$; the future tool projection conn__{name}__{op} has a 64-character budget, so keep both short.",
+
+  "name": "github",
+  "type": "rest",
+  "display": {
+    "display_name": "GitHub",
+    "description": "GitHub REST API v3 — repos, issues, pulls, rate limit.",
+    "icon": "github",
+    "category": "developer",
+    "setup_help": "Create a fine-grained personal access token at https://github.com/settings/tokens with read access to the repos you need (add `issues:write` only if you will use create-issue). Export it as the value side of `HTTP_AUTH_API_GITHUB_COM` — a FULL header line, e.g. `Authorization: Bearer ghp_...`. The token value lives ONLY in your shell env or the kernel vault; this file carries the secret NAME, never the value."
+  },
+  "env": "personal",
+  "account_label": "chazzcoin personal",
+  "data_categories": ["none"],
+
+  "base_url": "https://api.github.com",
+  "_note_base_url": "Fixed. NEVER model-parameterizable — operations supply paths, not hosts.",
+  "auth": {
+    "scheme": "bearer",
+    "secret": "github-pat",
+    "header": "Authorization",
+    "prefix": "Bearer "
+  },
+  "_note_auth": "auth.secret is a NAME resolved from env (HTTP_AUTH_<SANITIZED_HOST>) or the kernel vault. If a token value ever appears in this file, the file is wrong.",
+  "network_allowlist": ["api.github.com"],
+  "health": "get-rate-limit",
+  "timeout_ms": 30000,
+  "max_response_bytes": 262144,
+  "limits": { "per_minute": 60 },
+  "pagination": { "style": "page", "param": "page" },
+
+  "operations": [
+    {
+      "id": "list-issues",
+      "summary": "List issues in a repository, filterable by state and labels.",
+      "description": "Lists issues (which on GitHub includes pull requests — filter client-side on the absence of `pull_request` if you want issues only). Prefer this over get-issue when you don't know the issue number. Read-only, no side effects. Returns a JSON array of issue objects (number, title, state, labels, user, created_at).",
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/issues",
+      "params": {
+        "type": "object",
+        "properties": {
+          "owner": { "type": "string", "description": "Repository owner (path segment)" },
+          "repo": { "type": "string", "description": "Repository name (path segment)" },
+          "state": { "type": "string", "enum": ["open", "closed", "all"], "default": "open" },
+          "labels": { "type": "string", "description": "Comma-separated label names" },
+          "per_page": { "type": "integer", "maximum": 100, "default": 30 },
+          "page": { "type": "integer", "default": 1 }
+        },
+        "required": ["owner", "repo"]
+      },
+      "_note_params": "ONE FLAT JSON Schema object — path + query + body merged. Keep required[] minimal; defaults do the rest.",
+      "safe": true,
+      "example_args": { "owner": "RasaOS", "repo": "kernel", "state": "open", "per_page": 10 }
+    },
+    {
+      "id": "get-rate-limit",
+      "summary": "Check API connectivity and remaining rate-limit budget.",
+      "description": "Returns the current rate-limit status for the authenticated token. Costs no rate-limit budget itself, which is why it doubles as this connection's health probe. Returns resources.core.{limit,remaining,reset}.",
+      "method": "GET",
+      "path": "/rate_limit",
+      "params": { "type": "object", "properties": {}, "required": [] },
+      "safe": true,
+      "example_args": {}
+    },
+    {
+      "id": "create-issue",
+      "summary": "Create a new issue in a repository.",
+      "description": "Creates an issue. WRITE operation — it mutates the repository and notifies watchers; requires explicit user intent before calling against a real repo. Returns the created issue object including its number and html_url.",
+      "method": "POST",
+      "path": "/repos/{owner}/{repo}/issues",
+      "params": {
+        "type": "object",
+        "properties": {
+          "owner": { "type": "string", "description": "Repository owner (path segment)" },
+          "repo": { "type": "string", "description": "Repository name (path segment)" },
+          "title": { "type": "string", "description": "Issue title" },
+          "body": { "type": "string", "description": "Issue body (markdown)" },
+          "labels": { "type": "array", "items": { "type": "string" }, "description": "Label names to apply" }
+        },
+        "required": ["owner", "repo", "title"]
+      },
+      "safe": false,
+      "_note_safe": "safe is opt-IN: omitted means false. Stated explicitly here because write ops deserve the visible flag.",
+      "example_args": { "owner": "RasaOS", "repo": "kernel", "title": "Example issue from module.http", "body": "Filed via the http module worked example." }
+    }
+  ]
+}

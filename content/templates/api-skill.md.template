@@ -1,0 +1,95 @@
+---
+name: <connection-name>
+description: Work with the <service> API through the `<connection-name>` connection (.claude/connections/<connection-name>/connection.json) using the http module's MCP tools (http_request, http_get_json, http_paginate). Triggered when the user asks about <service> data or actions — e.g. "<example ask 1>", "<example ask 2>".
+---
+
+# <Service> — connection skill
+
+<!-- TEMPLATE: the per-API SKILL.md that lives NEXT TO a connection.json at
+     .claude/connections/<name>/SKILL.md. The connection spec is the machine
+     contract (hosts, auth, operations); this file is the operator knowledge
+     that makes an agent GOOD at the API. Fill every <angle-bracket> slot;
+     delete sections that genuinely don't apply, but say why in a one-liner
+     rather than deleting silently. Delete this comment block. -->
+
+## 1. When to use this connection (and when NOT)
+
+- Use for: <the data/actions this API is authoritative for>.
+- Prefer over <sibling connection / local data> when: <criterion>.
+- Do NOT use for: <what looks in-scope but isn't — wrong service, stale
+  mirror, a cheaper local source>.
+
+## 2. Auth note
+
+Auth is handled server-side — the http server injects the credential for
+allowlisted hosts from env / the kernel vault. **Never ask the user to
+paste a token, key, or secret value into the conversation.** If auth is
+missing, the `missing_auth` error names the exact env var to set; relay
+that to the operator and stop — do not retry.
+
+## 3. ID formats & lookups
+
+- <entity>: `<id shape, e.g. numeric / uuid / owner+slug pair>` — obtained
+  via `<list/search operation id>`.
+- <entity>: `<id shape>` — <lookup path>.
+- Gotcha: <e.g. display names are not ids; ids are case-sensitive; two id
+  namespaces exist and don't interchange>.
+
+## 4. Pagination idiom
+
+- Style: `<page | cursor | offset | link-header>`, param `<param>` (see
+  `pagination` in connection.json).
+- Use `http_paginate` for page-style listings (merges top-level or
+  `items` arrays, max 10 pages per call); for other styles, loop
+  `http_request` with `<cursor/offset field>` from the previous response.
+- The envelope's `truncated: true` means the RESPONSE BODY was cut at the
+  byte cap — that is not "no more pages." Narrow the request (smaller
+  `per_page`, field filters) instead of paging past it.
+
+## 5. Rate-limit etiquette
+
+- Budget: <requests per window, per token/org — from the API docs>.
+- On HTTP 429 the envelope includes `retry_after_ms` — wait that long
+  before ONE retry; if it recurs, report the limit to the user rather
+  than hammering.
+- Cheap probe: `<health operation id>` <costs / does not cost> budget.
+
+## 6. Operation relationships & recipes
+
+Worked multi-call sequences (2–3):
+
+1. **<Recipe name>**: `<op-a>` → take `<field>` → `<op-b>`.
+   <One line on why this order.>
+2. **<Recipe name>**: `<op-a>` (filter `<param>`) → `<op-c>` per item —
+   <cap / batching note>.
+3. **<Recipe name>**: <sequence>.
+
+## 7. Write-op cautions
+
+`safe:false` operations in this connection: `<op-x>`, `<op-y>`.
+
+- Each mutates real <service> state <and notifies humans / bills money /
+  is irreversible — say which>.
+- **Explicit user intent required before any of these runs** — a plan the
+  user approved, or a direct ask. Never chain a write onto a read the
+  user didn't ask to be followed by one.
+- <Undo path, if any: e.g. "issues can be closed but not deleted">.
+
+## 8. Data gotchas
+
+- Timestamps: `<format, e.g. ISO 8601 UTC / epoch seconds>`; timezone
+  quirks: <e.g. "dates without time are org-local">.
+- Enums: <fields whose values look free-text but are closed sets>.
+- Size limits: <max body sizes, truncated fields, attachment handling>.
+- <Other: null-vs-absent semantics, HTML-vs-markdown bodies, eventual
+  consistency after writes>.
+
+## 9. Known errors table
+
+| Upstream code / error | Meaning | Next action |
+|---|---|---|
+| `<401>` | <token invalid/expired> | Report `missing_auth`-style: name the env var, ask the operator; do not retry. |
+| `<403>` | <insufficient scope / rate-limited disguised as 403> | <check scopes in setup_help; distinguish from 429>. |
+| `<404>` | <not found OR no permission (API hides which)> | <verify the id via a list op before concluding it's gone>. |
+| `<422>` | <validation failed> | <fix the named field; the response body says which>. |
+| `<code>` | <meaning> | <action> |
