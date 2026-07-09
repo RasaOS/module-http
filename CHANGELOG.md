@@ -4,6 +4,12 @@ Reverse-chronological. Each entry is a version bump.
 
 ---
 
+## 0.1.3 — 2026-07-09
+
+### Element identity layer (canon SA-025)
+
+- Added `rasa.identity` ("the RasaOS module for HTTP"); `bin/init` generates `.claude/rasa-identity.md` from it every install + stamps project-owned `.claude/rasa-deployment.md`; ships `/whoami`; CLAUDE.md "Who you are" header.
+
 ## 0.1.2 — 2026-07-09
 
 ### Added generic `/sync` + `/promote` + `/kit`-aware `bin/init` (canon SA-024)
