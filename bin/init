@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# bin/init — minimal canonical installer for rasa.module.http.
+# rasa.domain.core init — minimal canonical installer for the
+# domain Element template.
 #
 # Usage:
 #   bin/init [target-dir]
@@ -14,11 +15,12 @@
 # each entry in element.files[] and seed.files[] by its declared
 # policy.
 #
-# For rasa.module.http: element.files[] mirrors the http spine
-# (http-rules.md + the /http and /api-onboard skills + the MCP server
-# script + the connection-spec templates); seed.files[] copies the
-# project-owned .claude/connections/README.md (skip-if-exists) and
-# stamps the lockfile.
+# For domain-core specifically: element.files[] entries are all
+# policy 'opt-in' (the v1.1.0 starter layer ships but is NOT installed
+# until a fork flips a policy), so an init here installs nothing from
+# content/. seed.files[] has the two canonical templates
+# (CLAUDE.md.template + rasa.lock.json.template). So an init here
+# mainly writes the lockfile + the project CLAUDE.md.
 
 set -euo pipefail
 
@@ -63,7 +65,7 @@ echo ""
 count_elem="$(python3 -c "import json; print(len(json.load(open('$MANIFEST')).get('element', {}).get('files', [])))")"
 
 if [[ "$count_elem" -eq 0 ]]; then
-  echo "  element.files[] empty — nothing Element-owned to mirror."
+  echo "  element.files[] empty — domain-core v0.x ships zero content."
 else
   echo "  Applying $count_elem element.files[] entries..."
   python3 - "$MANIFEST" "$ELEMENT_DIR" "$TARGET" <<'PYEOF'
@@ -76,14 +78,15 @@ for entry in manifest.get('element', {}).get('files', []):
     src = os.path.join(element_dir, entry['from'])
     dst = os.path.join(target, entry['to'])
     policy = entry['policy']
+    if policy == 'opt-in':
+        continue  # not installed automatically — create nothing in the target
+    # Only materialize the target directory for policies that write.
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     if policy == 'directory-mirror':
         if os.path.isdir(src):
             shutil.copytree(src, dst, dirs_exist_ok=True)
     elif policy == 'file-replace':
         shutil.copy2(src, dst)
-    elif policy == 'opt-in':
-        pass  # not installed automatically
     else:
         print(f"  ⚠ unknown element.files[] policy: {policy} for {entry['from']}", file=sys.stderr)
 PYEOF
@@ -146,6 +149,29 @@ for entry in manifest.get('seed', {}).get('files', []):
 PYEOF
 fi
 
+# ---------- Clone the Element source into <target>/kit/<folder>/ (the /kit stash) ----------
+# A persistent, pinned reference clone of the Element's source repo. It powers
+# /sync (smart-pull upstream changes) and /promote (smart-push local changes back
+# upstream). Cloned from the local Element dir (fast, no network); origin is
+# repointed at the real upstream so /sync + /promote fetch/push GitHub.
+ELEMENT_FOLDER="$(basename "$ELEMENT_DIR")"
+KIT_DIR="$TARGET/kit/$ELEMENT_FOLDER"
+if command -v git >/dev/null 2>&1 && [[ "$ELEMENT_SHA" != "uncommitted" ]]; then
+  if [[ -d "$KIT_DIR/.git" ]]; then
+    echo "  kit: kit/$ELEMENT_FOLDER already present (left as-is)"
+  else
+    mkdir -p "$TARGET/kit"
+    if git clone --quiet "$ELEMENT_DIR" "$KIT_DIR" 2>/dev/null; then
+      git -C "$KIT_DIR" remote set-url origin "$ELEMENT_REPO" 2>/dev/null || true
+      git -C "$KIT_DIR" checkout --quiet "$ELEMENT_SHA" 2>/dev/null || true
+      echo "  kit: cloned → kit/$ELEMENT_FOLDER (origin $ELEMENT_REPO, pinned ${ELEMENT_SHA:0:12})"
+    else
+      echo "  kit: ⚠ clone failed for $ELEMENT_FOLDER — /sync + /promote will clone on first use" >&2
+    fi
+  fi
+fi
+
 echo ""
 echo "✓ $ELEMENT_NAME @ $ELEMENT_VERSION installed into $TARGET"
 echo "  Lockfile: $TARGET/.claude/rasa.lock.json"
+echo "  Kit stash: $TARGET/kit/$ELEMENT_FOLDER (for /sync + /promote)"
